@@ -904,7 +904,6 @@ bot.onText(/^\/start$/, (msg) => {
   const chatId = msg.chat.id;
   stats.totalMessages++; saveStats();
   const isAdmin = admins.has(chatId);
-  const user = users[chatId] || {};
   const bal = getBalance(chatId);
   let text = '🤖 *NexTG Bot*\n';
   text += `• Runtime: Node ${process.version}\n`;
@@ -914,12 +913,36 @@ bot.onText(/^\/start$/, (msg) => {
   text += `• User ID: ${chatId}\n`;
   text += `• Saldo: Rp ${bal.toLocaleString('id-ID')}\n\n`;
   text += `Selamat datang! Pilih menu:`;
+  // Send GIF + caption
+  try {
+    const gifPath = path.join(__dirname, 'assets', 'start.gif');
+    if (fs.existsSync(gifPath)) {
+      bot.sendAnimation(chatId, fs.createReadStream(gifPath), { caption: text, parse_mode: 'Markdown', ...mainKb(isAdmin) });
+      return;
+    }
+  } catch (e) { console.error('Start GIF error:', e); }
   bot.sendMessage(chatId, text, { parse_mode: 'Markdown', ...mainKb(isAdmin) });
 });
 
 bot.onText(/^\/help$/, (msg) => {
   const chatId = msg.chat.id;
   stats.totalMessages++; saveStats();
+  let text = `Perintah:\n/start - Menu utama\n/help - Bantuan\n/products - Katalog\n/myorders - Pesananmu\n/status <order_id> - Cek status\n/saldo - Cek saldo\n/topup <jumlah> - Isi saldo\n\n`;
+  if (admins.has(chatId)) {
+    text += `Admin:\n/admin logout\n/admin add <nama> <harga> <deskripsi>\n/admin del <id>\n/admin products\n/admin orders\n/cancel <order_id>\n/sync_indosmm\n/backup\n/listbackups\n/restore <filename>`;
+  } else {
+    text += 'Admin: /admin <password>';
+  }
+  // Send GIF + caption
+  try {
+    const gifPath = path.join(__dirname, 'assets', 'help.gif');
+    if (fs.existsSync(gifPath)) {
+      bot.sendAnimation(chatId, fs.createReadStream(gifPath), { caption: text, parse_mode: 'Markdown' });
+      return;
+    }
+  } catch (e) { console.error('Help GIF error:', e); }
+  bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+});
   const isAdmin = admins.has(chatId);
   let text = 'Perintah:\n/start - Sapaan\n/help - Bantuan\n/stats - Statistik\n/products - Katalog\n/myorders - Pesananmu\n/status <order_id> - Cek status\n/saldo - Cek saldo\n/topup <jumlah> - Isi saldo via QRIS\n\n';
   if (isAdmin) text += 'Admin:\n/admin logout\n/admin add <nama> <harga> <deskripsi>\n/admin del <id>\n/admin products\n/admin orders\n/cancel <order_id>\n/sync_indosmm\n/backup\n/listbackups\n/restore <filename>';
