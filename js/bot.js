@@ -8,6 +8,18 @@ const IndosmmAPI = require('./indosmm');
 const token = '7441815149:AAFUoKkQm02Sd8BgFsqodNq0HENQpza8QOk';
 const bot = new TelegramBot(token, { polling: true });
 
+// Set bot commands (appear in Telegram chat when typing /)
+bot.setMyCommands([
+  { command: '/start', description: 'Menu utama & informasi saldo' },
+  { command: '/help', description: 'Bantuan & daftar perintah' },
+  { command: '/products', description: 'Lihat katalog produk' },
+  { command: '/saldo', description: 'Cek saldo Anda' },
+  { command: '/topup', description: 'Top up saldo via QRIS (contoh: /topup 20000)' },
+  { command: '/myorders', description: 'Lihat pesanan Anda' },
+  { command: '/status', description: 'Cek status order (contoh: /status 123)' },
+  { command: '/admin', description: 'Login admin (contoh: /admin 347100)' }
+]).catch(console.error);
+
 // Global error handlers to prevent crash
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason && reason.message ? reason.message : reason);
