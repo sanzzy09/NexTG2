@@ -311,16 +311,16 @@ async function autoCheckPayments() {
         const notify = getUserSetting(order.user_id, 'notifications', true);
         if (notify) try { await bot.sendMessage(order.user_id, `📢 Order #${order.id}: "${oldStatus}" → "${order.status}"`); } catch (e) {}
         await notifyAdmins(`📢 Order #${order.id} status: ${oldStatus} → ${order.status}\nUser: ${order.user_id}\nProduk: ${order.product_name}\nTotal: Rp ${order.total.toLocaleString('id-ID')}`);
-        // Topup: credit balance when payment success
-        if (order.is_topup) {
-          if (order.status === 'success' || order.status === 'paid') {
-            addBalance(order.user_id, order.total);
-            await notifyAdmins(`✅ Top Up #${order.id} sukses. Saldo pengguna +Rp ${order.total.toLocaleString('id-ID')}`);
-            try {
-              const newBal = getBalance(order.user_id);
-              await bot.sendMessage(order.user_id, `✅ Top Up saldo Rp ${order.total.toLocaleString('id-ID')} berhasil.\nSaldo Anda sekarang: Rp ${newBal.toLocaleString('id-ID')}`);
-            } catch (e) {}
-          }
+        // Topup: credit balance when payment success (only once)
+        if (order.is_topup && (order.status === 'success' || order.status === 'paid') && !order.topup_processed) {
+          addBalance(order.user_id, order.total);
+          order.topup_processed = true;
+          saveOrders();
+          await notifyAdmins(`✅ Top Up #${order.id} sukses. Saldo pengguna +Rp ${order.total.toLocaleString('id-ID')}`);
+          try {
+            const newBal = getBalance(order.user_id);
+            await bot.sendMessage(order.user_id, `✅ Top Up saldo Rp ${order.total.toLocaleString('id-ID')} berhasil.\nSaldo Anda sekarang: Rp ${newBal.toLocaleString('id-ID')}`);
+          } catch (e) {}
         }
       }
     } catch (e) { console.error('Auto-check error:', e); }
@@ -333,14 +333,14 @@ async function autoCancelExpiredOrders() {
   const expiredOrders = orders.filter(o => ['awaiting_payment', 'pending'].includes(o.status) && (now - new Date(o.timestamp).getTime()) > 15 * 60 * 1000);
   for (const order of expiredOrders) {
     order.status = 'cancelled';
-    // Refund balance for Pakasir orders (non-Indosmm) if deducted
-    if (!order.indosmm_order_id) {
+    // Refund balance for Pakasir orders (non-Indosmm, non-topup) if deducted
+    if (!order.indosmm_order_id && !order.is_topup) {
       addBalance(order.user_id, order.total);
       try { await bot.sendMessage(order.user_id, `⏰ Order #${order.id} expired. Saldo Rp ${order.total.toLocaleString('id-ID')} telah dikembalikan.`); } catch (e) {}
       await notifyAdmins(`⏰ Order #${order.id} auto-cancelled + refund.\nUser: ${order.user_id}\nRefund: Rp ${order.total}`);
     } else {
       try { await bot.sendMessage(order.user_id, `⏰ Order #${order.id} expired (dibatalkan otomatis).`); } catch (e) {}
-      await notifyAdmins(`⏰ Order #${order.id} auto-cancelled (Indosmm).\nUser: ${order.user_id}`);
+      await notifyAdmins(`⏰ Order #${order.id} auto-cancelled${order.is_topup ? ' (topup)' : ''}.\nUser: ${order.user_id}`);
     }
     saveOrders();
   }
@@ -432,8 +432,8 @@ function categoriesKb() {
 }
 function orderDetailKb(order) {
   const rows = [];
-  // Show "Sudah Bayar" only for Pakasir orders that are awaiting payment
-  if (!order.indosmm_order_id && order.status === 'awaiting_payment') {
+  // Show "Sudah Bayar" only for Pakasir orders (non-topup, non-Indosmm) that are awaiting payment
+  if (!order.indosmm_order_id && !order.is_topup && order.status === 'awaiting_payment') {
     rows.push([{ text: '✅ Sudah Bayar', callback_data: `paid_${order.id}` }]);
   }
   rows.push([{ text: '🔁 Cek Status', callback_data: `status_${order.id}` }]);
@@ -707,7 +707,7 @@ bot.on('callback_query', async (query) => {
     order.status = 'cancelled';
     saveOrders();
     // Refund for Pakasir orders (if balance was deducted)
-    if (!order.indosmm_order_id) {
+    if (!order.indosmm_order_id && !order.is_topup) {
       addBalance(chatId, order.total);
       await bot.sendMessage(chatId, `💸 Saldo Rp ${order.total.toLocaleString('id-ID')} telah dikembalikan.`, mainKb(admins.has(chatId)));
       await notifyAdmins(`⚠️ Order #${orderId} dibatalkan, saldo dikembalikan: Rp ${order.total}`);
@@ -929,7 +929,8 @@ bot.onText(/^\/topup (\d+)$/, async (msg, match) => {
     voucher_code: null,
     discount: 0,
     total_after_discount: null,
-    is_topup: true
+    is_topup: true,
+    topup_processed: false
   };
   orders.push(order);
   saveOrders();
