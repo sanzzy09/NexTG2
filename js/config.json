@@ -1,0 +1,14 @@
+{
+  "pakasir": {
+    "apiKey": "Iji9WlLklEfbroSS2EcgoiiI9RNUuncg",
+    "slug": "sanzzy",
+    "baseUrl": "https://app.pakasir.com/api"
+  },
+  "indosmm": {
+    "apiKey": "a9058749c977d3d47812ac9f59c4c95c",
+    "baseUrl": "https://indosmm.id/api/v2"
+  },
+  "admin": {
+    "password": "347100"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "pakasir": {
+    "apiKey": "Iji9WlLklEfbroSS2EcgoiiI9RNUuncg",
+    "slug": "sanzzy",
+    "baseUrl": "https://app.pakasir.com/api"
+  },
+  "admin": {
+    "password": "347100"
+  }
+}
