@@ -913,14 +913,19 @@ bot.onText(/^\/start$/, (msg) => {
   text += `• User ID: ${chatId}\n`;
   text += `• Saldo: Rp ${bal.toLocaleString('id-ID')}\n\n`;
   text += `Selamat datang! Pilih menu:`;
-  // Send GIF + caption
+  // Send image + caption (prefer JPG, fallback GIF)
   try {
+    const imgPath = path.join(__dirname, 'assets', 'start.jpg');
+    if (fs.existsSync(imgPath)) {
+      bot.sendPhoto(chatId, fs.createReadStream(imgPath), { caption: text, parse_mode: 'Markdown', ...mainKb(isAdmin) });
+      return;
+    }
     const gifPath = path.join(__dirname, 'assets', 'start.gif');
     if (fs.existsSync(gifPath)) {
       bot.sendAnimation(chatId, fs.createReadStream(gifPath), { caption: text, parse_mode: 'Markdown', ...mainKb(isAdmin) });
       return;
     }
-  } catch (e) { console.error('Start GIF error:', e); }
+  } catch (e) { console.error('Start image error:', e); }
   bot.sendMessage(chatId, text, { parse_mode: 'Markdown', ...mainKb(isAdmin) });
 });
 
@@ -933,14 +938,19 @@ bot.onText(/^\/help$/, (msg) => {
   } else {
     text += 'Admin: /admin <password>';
   }
-  // Send GIF + caption
+  // Send image + caption (prefer JPG, fallback GIF)
   try {
+    const imgPath = path.join(__dirname, 'assets', 'help.jpg');
+    if (fs.existsSync(imgPath)) {
+      bot.sendPhoto(chatId, fs.createReadStream(imgPath), { caption: text, parse_mode: 'Markdown' });
+      return;
+    }
     const gifPath = path.join(__dirname, 'assets', 'help.gif');
     if (fs.existsSync(gifPath)) {
       bot.sendAnimation(chatId, fs.createReadStream(gifPath), { caption: text, parse_mode: 'Markdown' });
       return;
     }
-  } catch (e) { console.error('Help GIF error:', e); }
+  } catch (e) { console.error('Help image error:', e); }
   bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
 });
   const isAdmin = admins.has(chatId);
