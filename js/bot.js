@@ -168,6 +168,8 @@ function formatUser(userId) {
 let voucherPending = {}; // chatId -> orderId
 // Indosmm link pending (chatId -> orderId)
 let linkPending = {};
+// Indosmm quantity pending (chatId -> orderId)
+let quantityPending = {};
 
 // Backup
 function createBackupFilename() {
@@ -616,27 +618,40 @@ bot.on('callback_query', async (query) => {
     const prodId = parseInt(data.split('_')[1], 10);
     const product = products.find(p => p.id === prodId);
     if (!product) return edit('Produk tidak ditemukan.', mainKb(admins.has(chatId)));
-    // Admin fee 20%
-    const total = Math.ceil(product.price * 1.2);
     const orderId = nextOrderId();
-    const order = { id: orderId, user_id: chatId, product_id: product.id, product_name: product.name, price: product.price, quantity: 1, total: total, timestamp: new Date().toISOString(), status: 'pending', pakasir_transaction_id: null, payment_number: null, voucher_code: null, discount: 0, total_after_discount: null, indosmm_order_id: null };
+    // Initialize order with quantity=0, total=0; fill later for SMM; for others set now
+    const order = {
+      id: orderId,
+      user_id: chatId,
+      product_id: product.id,
+      product_name: product.name,
+      price: product.price,
+      quantity: 0,
+      total: 0,
+      timestamp: new Date().toISOString(),
+      status: 'pending',
+      pakasir_transaction_id: null,
+      payment_number: null,
+      voucher_code: null,
+      discount: 0,
+      total_after_discount: null,
+      indosmm_order_id: null
+    };
     orders.push(order); saveOrders();
     stats.totalMessages++; saveStats();
 
-    // Kategori: Suntik SMM → minta link (balance already deducted), else → QRIS (balance deducted now)
     const category = product.category || 'Lainnya';
     if (category === 'Suntik SMM') {
-      // Deduct balance now
-      if (!deductBalance(chatId, total)) {
-        order.status = 'cancelled';
-        saveOrders();
-        return edit(`❌ Saldo tidak cukup. Di butuh Rp ${total.toLocaleString('id-ID')}. Saldo Anda: Rp ${getBalance(chatId).toLocaleString('id-ID')}`, mainKb(admins.has(chatId)));
-      }
+      // Step 1: minta link
       linkPending[chatId] = orderId;
-      return edit(`Order #${orderId} untuk ${product.name} (Total: Rp ${total.toLocaleString('id-ID')}).\nKirim link/username/target yang ingin di-${product.name} (contoh: @username atau https://...).`, {
+      return edit(`Order #${orderId} untuk ${product.name}.\nKirim link/username/target yang ingin di-${product.name} (contoh: @username atau https://...).`, {
         reply_markup: { inline_keyboard: [[{ text: '🔙 Kembali', callback_data: 'products' }]] }
       });
     } else {
+      // Non-SMM: quantity default 1, calculate total with fee
+      const total = Math.ceil(product.price * 1.2);
+      order.quantity = 1;
+      order.total = total;
       // Check balance first
       if (!deductBalance(chatId, total)) {
         order.status = 'cancelled';
@@ -1273,22 +1288,52 @@ bot.on('message', async (msg) => {
     if (order && order.status === 'pending') {
       const link = msg.text.trim();
       delete linkPending[chatId];
-      // Create order via Indosmm
-      const indosmmOrderId = await createIndosmmOrder(order, link);
-      if (!indosmmOrderId) {
+      order.target_link = link; // simpan sementara
+      // Minta quantity
+      quantityPending[chatId] = orderId;
+      return bot.sendMessage(chatId, `Link diterima: ${link}\n\nBerapa quantity? (minimal 100)`, {
+        reply_markup: { inline_keyboard: [[{ text: '🔙 Kembali', callback_data: 'products' }]] }
+      });
+    }
+  }
+
+  // Handle Indosmm quantity input
+  if (msg.text && quantityPending[chatId]) {
+    const orderId = quantityPending[chatId];
+    const order = orders.find(o => o.id === orderId && o.user_id === chatId);
+    if (order && order.status === 'pending') {
+      const qty = parseInt(msg.text.trim(), 10);
+      if (isNaN(qty) || qty < 100) {
+        return bot.sendMessage(chatId, 'Jumlah tidak valid. Minimal 100. Kirim angka quantity.', {
+          reply_markup: { inline_keyboard: [[{ text: '🔙 Kembali', callback_data: 'products' }]] }
+        });
+      }
+      delete quantityPending[chatId];
+      // Hitung total dengan admin fee 20%
+      const total = Math.ceil(order.price * qty * 1.2);
+      // Cek saldo
+      if (!deductBalance(chatId, total)) {
         order.status = 'cancelled';
         saveOrders();
-        // Refund balance
-        addBalance(chatId, order.total);
-        saveUsers();
-        await notifyAdmins(`⚠️ Order #${orderId} gagal dibuat. Saldo Rp ${order.total} dikembalikan ke user ${formatUser(chatId)}.`);
-        return bot.sendMessage(chatId, `❌ Gagal membuat order ke Indosmm. Kemungkinan:\n- Produk ini belum memiliki service ID (belum di-sync)\n- API key Indosmm tidak valid\n- Layanan Indosmm error\n\nOrder #${orderId} dibatalkan dan saldo Rp ${order.total} telah dikembalikan.`, mainKb(admins.has(chatId)));
+        return bot.sendMessage(chatId, `❌ Saldo tidak cukup. Di butuh Rp ${total.toLocaleString('id-ID')}. Saldo Anda: Rp ${getBalance(chatId).toLocaleString('id-ID')}`, mainKb(admins.has(chatId)));
+      }
+      order.quantity = qty;
+      order.total = total;
+      saveOrders();
+      // Create order via Indosmm
+      const indosmmOrderId = await createIndosmmOrder(order, order.target_link);
+      if (!indosmmOrderId) {
+        order.status = 'cancelled';
+        addBalance(chatId, total); // refund
+        saveOrders();
+        await notifyAdmins(`⚠️ Order #${orderId} gagal dibuat. Saldo Rp ${total} dikembalikan ke user ${formatUser(chatId)}.`);
+        return bot.sendMessage(chatId, `❌ Gagal membuat order ke Indosmm. Kemungkinan:\n- Produk ini belum memiliki service ID (belum di-sync)\n- API key Indosmm tidak valid\n- Layanan Indosmm error\n\nOrder #${orderId} dibatalkan dan saldo Rp ${total} telah dikembalikan.`, mainKb(admins.has(chatId)));
       }
       order.indosmm_order_id = indosmmOrderId.toString();
       order.status = 'pending';
       saveOrders();
-      await notifyAdmins(`📢 Order #${orderId} (Indosmm) dibuat.\nUser: ${chatId}\nProduk: ${order.product_name}\nLink: ${link}\nIndosmm Order ID: ${indosmmOrderId}\nStatus: ${order.status}`);
-      return bot.sendMessage(chatId, `✅ Order #${orderId} diterima!\nProduk: ${order.product_name}\nQty: ${order.quantity}\nTotal: Rp ${order.total.toLocaleString('id-ID')}\nStatus: ${order.status}\nLink: ${link}\n\nKamu bisa cek status dengan tombol "🔁 Cek Status" atau perintah /status ${orderId}`, orderDetailKb(order));
+      await notifyAdmins(`📢 Order #${orderId} (Indosmm) dibuat.\nUser: ${formatUser(chatId)}\nProduk: ${order.product_name}\nQty: ${qty}\nTotal: Rp ${total.toLocaleString('id-ID')}\nLink: ${order.target_link}\nIndosmm Order ID: ${indosmmOrderId}\nStatus: ${order.status}`);
+      return bot.sendMessage(chatId, `✅ Order #${orderId} diterima!\nProduk: ${order.product_name}\nQty: ${qty}\nTotal: Rp ${total.toLocaleString('id-ID')}\nStatus: ${order.status}\nLink: ${order.target_link}\n\nKamu bisa cek status dengan tombol "🔁 Cek Status" atau perintah /status ${orderId}`, orderDetailKb(order));
     }
   }
 
