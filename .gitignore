@@ -1,5 +1,35 @@
+# Dependencies
 node_modules/
-session/
-.env
+npm-debug.log
+yarn-error.log
+
+# Logs
 *.log
+logs/
+
+# Backup & cache (optional, exclude if repo should be lightweight)
+js/backups/*.zip
+js/qr_cache/*.png
+
+# Secrets
+.env
+config.local.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
 .DS_Store
+Thumbs.db
+
+# User data (sensitive - don't commit live database)
+js/database/users.json
+js/database/orders.json
+js/database/admins.json
+js/database/vouchers.json
+js/database/stats.json
+
+# Optional: keep sample configs
+!js/database/config.json.example
+!js/database/products.json.example

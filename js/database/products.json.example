@@ -1,0 +1,9 @@
+[
+  {
+    "id": 1,
+    "name": "Contoh Produk Custom",
+    "price": 10000,
+    "desc": "Deskripsi produk",
+    "category": "Lainnya"
+  }
+]

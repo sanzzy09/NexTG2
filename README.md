@@ -6,15 +6,20 @@ Bot Telegram untuk e-commerce sederhana dengan integrasi pembayaran QRIS via Pak
 
 ## Fitur Utama
 
-- **Katalog Produk** — tampilkan, tambah,edit, hapus produk
-- **Order & Pembayaran** — buat order, generate QRIS otomatis via Pakasir
-- **Voucher & Diskon** — voucher percent/fixed, apply sebelum QRIS dibuat
-- **Admin Panel** — inline keyboard, manage produk, voucher, backup, restore
-- **Auto-status** — cek pembayaran otomatis setiap 30 detik
-- **Auto-cancel** — batalkan order setelah 15 menit jika belum dibayar
+- **Kategori Produk** — produk dikategorikan: `Suntik SMM` (dari Indosmm) dan `Lainnya` (custom)
+- **Saldo Pengguna** — user harus memiliki saldo sebelum order; saldo bertambah via top-up QRIS
+- **Admin Fee 20%** — harga otomatis ditambah 20% (total = price × 1.2)
+- **Integrasi Indosmm** — sync layanan SMM via API; order langsung ke Indosmm (tanpa QRIS)
+- **Top-up Otomatis** — `/topup <jumlah>` membuat QRIS; upon payment sukses, saldo bertambah
+- **Order Flow** — cek saldo sebelum order; deduct otomatis; refund jika gagal
+- **Katalog Produk** — tampilkan, tambah, edit, hapus produk
+- **Order & Pembayaran** — buat order, generate QRIS otomatis via Pakasir (untuk produk non-SMM)
+- **Admin Panel** — inline keyboard, manage produk, sync Indosmm, backup, restore
+- **Auto-status** — cek pembayaran/status Indosmm otomatis setiap 30 detik
+- **Auto-cancel** — batalkan order setelah 15 menit jika belum dibayar; refund saldo otomatis
 - **Backup & Restore** — backup harian otomatis, restore manual, retensi 30 hari
 - **Inline Keyboard** — navigasi dengan edit pesan (tidak spam)
-- **Notifications** — toggle notifikasi pembayaran per user
+- **Notifications** — toggle notifikasi pembayaran per user; notifikasi admin pakai username
 - **Multi-admin** — simpan daftar admin di `admins.json`
 
 ---
@@ -84,12 +89,12 @@ NEXBOT/
 ## Cara Pakai
 
 ### User
-- `/start` — menu utama
-- `/products` — lihat katalog
-- `/order <id>` — buat pesanan
+- `/start` — menu utama (tampilkan info bot & saldo)
+- `/saldo` — cek saldo
+- `/topup <jumlah>` — isi saldo via QRIS (min Rp 5.000)
+- `/products` — lihat katalog (dengan pilihan kategori)
 - `/myorders` — lihat pesananmu
-- `/status <order_id>` — cek status pembayaran
-- `/voucher <kode>` — terapkan voucher ke order terakhir (sebelum QRIS)
+- `/status <order_id>` — cek status order
 - `/help` — bantuan
 
 ### Admin
@@ -97,22 +102,13 @@ NEXBOT/
 - Setelah login, menu admin aktif:
   - `➕ Tambah Produk`
   - `🗑️ Hapus Produk`
-  - `✏️ Edit Produk` (via command `/admin edit <id> <field> <value>`)
   - `📦 Lihat Produk`
+  - `🌐 Sync Indosmm` — ambil layanan SMM dari indosmm.id
   - `📋 Lihat Orders`
   - `💾 Backup Now`
   - `📜 List Backups` & `/restore <filename>`
-  - `🎟️ Voucher` — tambah/list/hapus voucher
   - `/cancel <order_id>` — batalkan order
 - `/admin logout` — keluar
-
-### Voucher Commands (admin)
-```bash
-/voucher add <code> <percent|fixed> <value> [max_usage] [expire_days]
-# contoh: /voucher add SAVE20 percent 20 50 30
-/voucher list
-/voucher del <code>
-```
 
 ---
 

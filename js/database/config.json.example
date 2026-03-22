@@ -1,0 +1,14 @@
+{
+  "pakasir": {
+    "apiKey": "ISI_PAKASIR_API_KEY",
+    "slug": "your-project-slug",
+    "baseUrl": "https://app.pakasir.com/api"
+  },
+  "indosmm": {
+    "apiKey": "ISI_INDOSMM_API_KEY",
+    "baseUrl": "https://indosmm.id/api/v2"
+  },
+  "admin": {
+    "password": "3499100"
+  }
+}
